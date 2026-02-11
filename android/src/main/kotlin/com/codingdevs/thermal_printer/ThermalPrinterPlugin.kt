@@ -373,23 +373,57 @@ class ThermalPrinterPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.Re
         result.success(true)
     }
 
+    /**
+     * Checks for required Bluetooth/Location permissions. If missing, requests them.
+     *
+     * This method also prevents the infinite loop by NOT calling requestPermissions again
+     * if the user has denied permanently ("Don’t ask again").
+     */
     private fun checkPermissions(): Boolean {
-        val permissions = mutableListOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-//            Manifest.permission.BLUETOOTH,
-//            Manifest.permission.BLUETOOTH_ADMIN,
+        val requiredPermissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION
+            // Commented out for newer Android versions, but you can re-enable if needed:
+            // Manifest.permission.BLUETOOTH,
+            // Manifest.permission.BLUETOOTH_ADMIN,
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
-            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+            requiredPermissions.add(Manifest.permission.BLUETOOTH_SCAN)
+            requiredPermissions.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
 
-        if (!hasPermissions(context, *permissions.toTypedArray())) {
-            ActivityCompat.requestPermissions(currentActivity!!, permissions.toTypedArray(), PERMISSION_ALL)
+        // 1) If all permissions are already granted, return true.
+        if (hasPermissions(context, *requiredPermissions.toTypedArray())) {
+            return true
+        }
+
+        // 2) Identify which permissions we can request again
+        val permissionsToRequest = mutableListOf<String>()
+        for (permission in requiredPermissions) {
+            val granted = ActivityCompat.checkSelfPermission(context!!, permission) == PackageManager.PERMISSION_GRANTED
+            val canAskAgain = ActivityCompat.shouldShowRequestPermissionRationale(currentActivity!!, permission)
+
+            if (!granted) {
+                // If not granted, check if we can still ask for it again
+                if (canAskAgain) {
+                    // We'll add this permission to request
+                    permissionsToRequest.add(permission)
+                } else {
+                    // The user checked "Don't ask again" or the system policy prohibits asking
+                    Toast.makeText(context, "Permission is permanently denied. Please enable it in Settings.", Toast.LENGTH_LONG).show()
+                    return false
+                }
+            }
+        }
+
+        // 3) If there's no permission left to request, it means everything's either granted or permanently denied
+        if (permissionsToRequest.isEmpty()) {
             return false
         }
-        return true
+
+        // 4) Request all the missing permissions
+        ActivityCompat.requestPermissions(currentActivity!!, permissionsToRequest.toTypedArray(), PERMISSION_ALL)
+        return false
     }
 
     private fun hasPermissions(context: Context?, vararg permissions: String?): Boolean {

@@ -17,10 +17,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  enum_to_string: ^2.0.1
-  image: ^4.5.2
+  enum_to_string: ^2.2.1
+  image: ^4.5.4
 
-  network_info_plus: ^6.1.3
+  network_info_plus: 6.1.2
   ping_discover_network_forked: ^0.0.1
   rxdart: ^0.28.0
   gbk_codec: ^0.4.0
